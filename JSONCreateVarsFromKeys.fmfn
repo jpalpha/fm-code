@@ -1,4 +1,4 @@
-/*
+/**
  * @SIGNATURE:
  * JSONCreateVarsFromKeys ( json ; namespace )
  *

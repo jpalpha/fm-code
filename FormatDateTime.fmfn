@@ -1,4 +1,4 @@
-/*
+/**
 FormatDateTime ( dateValue ; timeValue ; format )
 
 by Lewis C. Lorenz
