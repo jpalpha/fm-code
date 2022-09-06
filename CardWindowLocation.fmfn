@@ -1,0 +1,155 @@
+/*
+ * =====================================================
+ * CardWindowLocation ( anchor ; width ; height ; offset )
+ *		
+ * 
+ * PARAMETERS:
+ *		anchor (string) = Possible combinations of {top, right, bottom, left & center }
+ *		width (string) = Either a fixed numerical value or percentage [including % sign]
+ *		height (string) = Either a fixed numerical value or percentage [including % sign]}
+ *		offset (number) = Positive or negative value used against the first keyword in anchor
+ *
+ * RETURNS:
+ *		(list) top, left, width, height   
+ *
+ * DEPENDENCIES:
+ *		none
+ *
+ * NOTES:
+ *		Note this function is specific to Card windows because they account
+ *		for relative position to their parent in regards to the left and top values
+ *		of the Get ( Window* ) functions.
+ *
+ * RELEASE:
+ *		2018-04-19 by Matt Petrowsky <matt@isoproductions.com>
+ *
+ * =====================================================
+ * 
+ */
+
+Definir ( [
+	~debug = False;
+	~anchor = anchor; // Possible options/combinations of {top, right, bottom, left, center}
+
+	~Y_axisWords = Liste ( "top" ; "bottom" );
+	~anchorY = Cas (
+				Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~Y_axisWords ; MotsExtraits ( ~anchor ; 2 ; 1 ) ) ; 1 ) );
+					MotsExtraits ( ~anchor ; 2 ; 1 );
+
+				Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~Y_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 ) );
+					MotsDebut ( ~anchor ; 1 );
+
+				"center" // Default to center.			
+				);
+
+
+	~X_axisWords = Liste ( "left" ; "center" ; "right" );
+	~anchorX = Cas (
+				Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~X_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 ) );
+					ObtenirValeur ( ValeursFiltre ( ~X_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 );
+
+				Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~Y_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 ) )
+				And Not EstVide ( MotsExtraits ( ~anchor ; 2 ; 1 ) );
+					MotsExtraits ( ~anchor ; 2 ; 1 );
+				
+				"center" // Default to center.
+				);
+
+	~width = width; // percent or absolute value
+	~height = height; // percent or absolute value
+	~offset = offset;
+
+	// Width as a percentage
+
+	~isPercentageWidth = Position ( ~width ; "%" ; 1 ; 1 );
+	~isPercentageWidth = Si ( ~isPercentageWidth ; ObtenirNombre ( ~width ) / 100 ; False );
+
+	// Height as a percentage
+
+	~isPercentageHeight = Position ( ~height ; "%" ; 1 ; 1 );
+	~isPercentageHeight = Si ( ~isPercentageHeight ; ObtenirNombre ( ~height ) / 100 ; False );
+
+	~statusArea = Obtenir ( HauteurFenêtre ) - Obtenir ( HauteurContenuFenêtre );
+
+	~layoutWidth = Obtenir ( LargeurContenuFenêtre );
+	~layoutHeight = Obtenir ( HauteurContenuFenêtre );
+
+	~width = Ent ( Si ( ObtenirCommeBooleen ( ~isPercentageWidth ) ; ~layoutWidth * ~isPercentageWidth ; ~width ) );
+	~height = Ent ( Si ( ObtenirCommeBooleen ( ~isPercentageHeight ) ; ~layoutHeight * ~isPercentageHeight ; ~height ) );
+
+	~yOffset = Si ( Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~Y_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 ) ) ; ~offset ; 0 );
+	~top = Cas (
+			~anchorY = "top";
+				~yOffset;
+
+			~anchorY = "bottom";
+				~layoutHeight - ~height + ~yOffset;
+
+			( ( ~layoutHeight - ~height ) / 2 ) + ~yOffset
+			);
+
+	~xOffset = Si ( Not EstVide ( ObtenirValeur ( ValeursFiltre ( ~X_axisWords ; MotsDebut ( ~anchor ; 1 ) ) ; 1 ) ) ; ~offset ; 0 );
+	~left = Cas (
+			~anchorX = "left";
+				~xOffset;
+
+			~anchorX = "right";
+				~layoutWidth - ~width + ~xOffset;
+
+			( ( ~layoutWidth - ~width ) / 2 ) + ~xOffset
+			);
+	~debugInfo = Liste (
+			"--- Debug --- ";
+			"anchorX = " & ~anchorX;
+			"anchorY = " & ~anchorY;
+			"top = " & ~top;
+			"left = " & ~left;
+			"width = " & ~width;
+			"height = " & ~height;
+			"windowContentWidth = " & Obtenir ( LargeurContenuFenêtre );
+			"WindowContentHeight = " & Obtenir ( HauteurContenuFenêtre );
+			"WindowTop = " & Obtenir ( HautFenêtre );
+		)
+];
+	Liste (
+		~top;
+		~left;
+		~width;
+		~height;
+		
+		// set $$DEBUG in order to see results within a merge variable in a window
+		Si ( ~debug ; Definir ( $$DEBUG = ~debugInfo ; ~debugInfo ) ); 	)
+)
+
+/*
+
+X = left / center / right
+Y = top / center / bottom
+
+Coordinates derived from X,Y
+
+left top
+left center
+left bottom
+
+center top
+center center
+center bottom
+
+right top
+right center
+right bottom
+
+---------
+Some users might supply Y,X
+---------
+
+top left
+top center
+top right
+
+bottom left
+bottom center
+bottom right
+
+*/

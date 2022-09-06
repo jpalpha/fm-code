@@ -1,0 +1,150 @@
+/*
+ * =====================================
+ * Explode ( separator ; text ; limit )
+ *
+ * RETURNS:
+ *         Lines of text, chunked on separator, up to limit (type Text - Value List)
+ *
+ * PARAMETERS:
+ *    separator - A simple boundary string, typically a single character
+ *    text - Text to explode, a single line is customary
+ *    limit -
+ *        If limit is positive, a maximum of this many values will be returned. The last
+ *        value containing all remaining unexploded elements.
+ *        If limit is negative, all components returned as values except for the last
+ *        -limit values.
+ *        If limit is not set, then there will be no limit beyond FileMaker's internal
+ *        limits which can be adjusted using SetRecursion().
+ *        If limit is 0, it will be treated as if limit was 1.
+ *
+ * DEPENDENCIES: FileMaker ≥18.0
+ *
+ * NOTES:
+ *    Inspired by PHP - https://www.php.net/manual/en/function.explode.php
+ *    Pattern matching of separator is not case or word-break sensitive, and follows
+ *    behavior of Position().
+ *    Any line breaks in text are likely to foul up usable output.
+ *    Line breaks are output similar to List() and no additional ¶ is added after the last
+ *    line of output. However, empty lines will not be skipped the way that List() does.
+ *
+ * EXAMPLES:
+ * 
+ *     Explode ( ":" ; "uno:dos:tres:cuatro" ; "" ) will return...
+ *   
+ *         uno
+ *         dos
+ *         tres
+ *         cuatro
+ *
+ *
+ *     Explode ( ":" ; "uno:dos:tres:cuatro" ; 3 ) will return...
+ *   
+ *         uno
+ *         dos
+ *         tres:cuatro
+ *
+ *
+ *     Explode ( ":" ; "uno:dos:tres:cuatro" ; -1 ) will return...
+ *
+ *         uno
+ *         dos
+ *         tres
+ *
+ *
+ *     GetValue ( Explode ( ":" ; "uno:dos:tres:cuatro" ; 4 ) ; 3 ) will return...
+ *
+ *         tres
+ *
+ * 
+ * HISTORY:
+ *     CREATED on 2022-07-20 by Chris Irvine <chris@threeprong.com>
+ *
+ * MIT No Attribution
+ * 
+ * Copyright (c) 2022 Threeprong.com LLC
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this
+ * software and associated documentation files (the "Software"), to deal in the Software
+ * without restriction, including without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. * =====================================
+ */
+
+Case (
+    IsEmpty ( separator ) ;
+        "?" ;
+    IsEmpty ( limit ) or GetAsNumber ( limit ) ≥ 0 ;
+        /* positive limit mode */
+        While ( 
+            [
+                ~max_int = 999999999999999 ;
+                ~limit = Max ( If ( IsEmpty ( limit ) ; ~max_int ; GetAsNumber ( limit ) ) ; 1 ) ;
+                ~next_chunk_start = 1 ;
+                ~output_lines = 0 ;
+                ~output = "" ;
+                ~input_len = Length ( text ) ;
+                ~sep_len = Length ( separator )
+            ] ;
+            ~output_lines < ~limit and ~next_chunk_start ≤ ~input_len ;
+            [
+                ~sep_position = Position ( text ; separator ; ~next_chunk_start ; 1 ) ;
+                ~chunk_len = If ( ~output_lines + 1 = ~limit or not ~sep_position ;
+                    /* then - toss the remainder into the final chunk */
+                        ~input_len - ~next_chunk_start + 1 ;
+                    /* else - normal next chunk */
+                        ~sep_position - ~next_chunk_start
+                ) ;
+                ~chunk = Middle ( text ; ~next_chunk_start ; ~chunk_len ) ;
+                ~next_chunk_start = ~next_chunk_start + ~chunk_len + ~sep_len ;
+                ~output = If ( IsEmpty ( ~output ) ; ~chunk ; ~output & ¶ & ~chunk ) ;
+                ~output_lines = ~output_lines + 1
+            ] ;
+            ~output
+        ) ;
+    GetAsNumber(limit) < 0 ;
+        /* negative limit mode - process all chunks, but limit the number of returned values */
+        While ( 
+            [
+                ~max_int = 999999999999999 ;
+                ~limit = - GetAsNumber ( limit ) ;
+                ~next_chunk_start = 1 ;
+                ~output_lines = 0 ;
+                ~output = "" ;
+                ~input_len = Length ( text ) ;
+                ~sep_len = Length ( separator )
+            ] ;
+            ~next_chunk_start ≤ ~input_len ;
+            [
+                ~sep_position = Position ( text ; separator ; ~next_chunk_start ; 1 ) ;
+                ~chunk_len = If ( not ~sep_position ;
+                    /* then - toss the remainder into the final chunk */
+                        ~input_len - ~next_chunk_start + 1 ;
+                    /* else - normal next chunk */
+                        ~sep_position - ~next_chunk_start
+                ) ;
+                ~chunk = Middle ( text ; ~next_chunk_start ; ~chunk_len ) ;
+                ~next_chunk_start = ~next_chunk_start + ~chunk_len + ~sep_len ;
+                ~output = If ( IsEmpty ( ~output ) ; ~chunk ; ~output & ¶ & ~chunk ) ;
+                ~output_lines = ~output_lines + 1
+            ] ;
+            Let (
+                    /* scan backwards through output counting off line breaks */
+                    ~last_pilcrow = Position ( ~output ; ¶ ; Length ( ~output ) ; - ~limit) ;
+                If ( ~last_pilcrow ;
+                    /* then - emit final output */
+                        Left ( ~output ; ~last_pilcrow - 1 ) ;
+                    /* else */
+                        ""
+                )
+            )
+        ) ;
+    /* default - bad limit */
+        "?"
+)

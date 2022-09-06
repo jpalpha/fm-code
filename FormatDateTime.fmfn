@@ -1,0 +1,138 @@
+/*
+FormatDateTime ( dateValue ; timeValue ; format )
+
+by Lewis C. Lorenz
+9/22/2011: Created
+1/1/14: Modified
+
+Returns the dateValue and/or timeValue formatted as specified in format.
+If dateValue or timeValue are empty current date or current time are used.
+Optionally use the backslash as an escape code to include text not intended to be formatted.
+Escaped \ is written \\, all other escaped text must be enclosed within an opening \ and a closing \.
+Formatting performed using PHP date() function format codes but with Filemaker conventions.
+
+Passing '?' as the whole value of format returns this help text and the following code explanations.
+
+Day -------
+d -	01-31
+D -	Mon-Sun
+j -	1-31
+l (lowercase 'L') -	Sunday-Saturday
+N -	1 (Monday) ... 7 (Sunday). (PHP convention: ISO-8601 representation of day of week.)
+S -	st, nd, rd or th (English ordinal suffix.)
+w -	1 (Sunday) ... 7 (Saturday). (PHP convention : 0 (for Sunday) through 6 (for Saturday).)
+z -	1-366. (PHP convention: 0-365.)
+Week -----
+W - 1-54, week of year Jan. 1. (PHP convention: ISO-8601 week number of year, weeks starting on Monday.)
+Month ----
+F -	January-December
+m -	01-12
+M -	Jan-Dec
+n -	1-12
+t -	28-31
+Year -----
+L -	Leap year (1/0)
+o - year number. ISO-8601 year number.
+Y -	4 digit year
+y - 2 digit year
+Time ----
+a - 	am/pm
+A - AM/PM
+g -	Hour 1-12
+G -	Hour 0-23
+h -	Hour 01-12
+H -	Hour 00-23
+i -	Min 00-59
+s -	Sec 00-59
+u -	Microseconds
+
+NOTICE: This is a recursive function, so, if you change the function name remember to also change it in the function code.
+
+Examples:
+FormatDateTime ( 9/21/2005 ; 11:06:53 ; "Y-m-d His \zulu\" )  = 2005-09-21 110653 zulu
+FormatDateTime ( 10-3-2011 ; "" ; "\today is the \jS\ day\" )  = today is the 3rd day
+*/
+
+Definir( [d = Si ( EstVide( dateValue ); Obtenir ( DateActuelle ); ObtenirDate ( dateValue ) ); 
+t = Si ( EstVide( timeValue ); Obtenir ( HeureActuelle ); ObtenirHeure ( timeValue ) ); 
+format = format & Si ( Mod ( Occurrences ( format; "\\" ); 2 ); "\\"; "" ); // Append \ if count not even.
+f = Debut ( format; 1 );
+f = Si ( f = "\\"; Extrait ( format; 1; Position ( format; "\\"; 2; 1 ) ); f ); // Escape found, set to full escaped string.
+c = Cas(
+f = "\\\\";  "\\"; // If a single blackslash has been escaped, make f a single backslash.
+Longueur ( f ) > 1; Extrait ( f; 2; Position ( f; "\\"; 2; 1 ) - 2); // Get the contents.
+EstEgal ( f; "d" ) ; Fin ( ObtenirTexte ( 100 + Jour ( d ) ); 2 ) ;
+EstEgal ( f; "D" ) ; Debut ( NomJour ( d ) ; 3 ) ;
+EstEgal ( f; "j" ) ; ObtenirTexte ( Jour ( d ) ) ;
+EstEgal ( f; "l" ) ; NomJour ( d ) ;
+EstEgal ( f; "N" ) ; ObtenirTexte ( Si ( JourSemaine ( d ) - 1 = 0; 7; JourSemaine ( d ) - 1 ) ) ;
+EstEgal ( f; "S" ) ; Si ( Occurrences ( "11 12 13"; Fin ( ObtenirTexte ( 100 + Jour ( d ) ); 2 ) ); "th"; Choisir ( Mod ( Jour ( d ) ; 10 ) ; "th"; "st"; "nd"; "rd"; "th"; "th"; "th"; "th"; "th"; "th" ) );
+EstEgal ( f; "w" ) ; ObtenirTexte ( JourSemaine ( d ) ) ;
+EstEgal ( f; "z" ) ; ObtenirTexte ( JourAnnee ( d ) ) ;
+EstEgal ( f; "W" ) ; ObtenirTexte ( SemaineAnnee ( d ) ) ;
+EstEgal ( f; "F" ) ; NomMois ( d ) ;
+EstEgal ( f; "m" ) ; Fin ( ObtenirTexte ( 100 + Mois ( d ) ); 2 ) ;
+EstEgal ( f; "M" ) ; Debut ( NomMois ( d ) ; 3 ) ;
+EstEgal ( f; "n" ) ; ObtenirTexte ( Mois ( d ) ) ;
+EstEgal ( f; "t" ) ; ObtenirTexte ( Jour ( Date ( Mois ( d ) + 1; 1; Annee ( d ) ) - 1 ) ) ;
+EstEgal ( f; "L" ) ; ObtenirTexte ( Si ( Jour ( Date ( 3; 1; Annee ( d ) ) - 1 ) = 29; 1; 0 ) ) ;
+EstEgal ( f; "o" ) ; ObtenirTexte ( Annee ( d ) + Cas ( SemaineAnnee ( d ) = 1 And JourSemaine ( Date ( 1; 1; Annee ( d ) ) ) > 1; -1; SemaineAnnee ( d ) > 52 And JourSemaine ( Date ( 12; 31; Annee ( d ) ) ) < 7 ; 1 ; 0 ) ) ;
+EstEgal ( f; "Y" ) ; ObtenirTexte ( Annee ( d ) ) ;
+EstEgal ( f; "y" ) ; Fin ( ObtenirTexte ( Annee ( d ) ) ; 2 ) ;
+EstEgal ( f; "a" ) ; Si ( ObtenirNombre ( t ) > 43200; "pm"; "am" ) ;
+EstEgal ( f; "A" ) ; Si ( ObtenirNombre ( t ) > 43200; "PM"; "AM" ) ;
+EstEgal ( f; "g" ) ; ObtenirTexte ( Si ( Heures ( t ) > 12; Heures ( t ) - 12; Heures ( t ) ) ) ;
+EstEgal ( f; "G" ) ; ObtenirTexte ( Heures ( t ) ) ;
+EstEgal ( f; "h" ) ; Fin ( ObtenirTexte ( 100 + Si ( Heures ( t ) > 12; Heures ( t ) - 12; Heures ( t ) ) ); 2) ;
+EstEgal ( f; "H" ) ; Fin ( ObtenirTexte ( 100 + Heures ( t ) ); 2 );
+EstEgal ( f; "i" ) ; Fin ( ObtenirTexte ( 100 + Minutes ( t ) ); 2);
+EstEgal ( f; "s" ) ; Fin ( ObtenirTexte ( 100 + Secondes ( t ) ); 2);
+EstEgal ( f; "u" ) ; ObtenirTexte ( ObtenirNombre ( t ) ) ;
+f);
+// Prepare for recursive call.
+format = Fin ( format; Longueur (format ) - Longueur ( f ) );
+// Prepare help text.
+h = Si ( f = "?" And Longueur ( format ) = 0; "FormatDateTime ( dateValue, timeValue, format )¶¶Returns the dateValue and timeValue formatted as specified in format.¶¶If dateValue or timeValue are empty current date or current time are used.¶Optionally use the backslash as an escape code to include text not intended to be formatted.¶Escaped \ is written \\\, all other escaped text must be enclosed within an opening \ and a closing \.¶Format codes are the same as PHP date() function format codes, but with Filemaker conventions.¶¶
+Day codes:¶
+d -	01-31¶
+D -	Mon-Sun¶
+j -	1-31¶
+l -	 (lowercase 'L') Sunday-Saturday¶
+N -	1 (Monday) ... 7 (Sunday). (PHP convention: ISO-8601 representation of day of week.)¶
+S -	st, nd, rd or th (English ordinal suffix.)¶
+w -	1 (Sunday) ... 7 (Saturday). (PHP convention : 0 (Sunday) ... 6 (Saturday).)¶
+z -	1-366. (PHP convention: 0-365.)¶¶
+Week codes:¶
+W -	1-54, week of year Jan. 1. (PHP convention: ISO-8601 week number of year, weeks starting on Monday.)¶¶
+Month codes:¶
+F -	January-December¶
+m -	01-12¶
+M -	Jan-Dec¶
+n -	1-12¶
+t -	28-31¶¶
+Year codes:¶
+L -	Leap year (1/0)¶
+o -	year number. ISO-8601 year number.¶
+Y -	4 digit year¶
+y -	2 digit year¶¶
+Time codes:¶
+a - 	am/pm¶
+A -	AM/PM¶
+g -	Hour: 1-12¶
+G -	Hour: 0-23¶
+h -	Hour: 01-12¶
+H -	Hour: 00-23¶
+i -	Min: 00-59¶
+s -	Sec: 00-59¶
+u -	Microseconds¶¶
+Examples:¶
+FormatDateTime ( 9/21/2005, 11:06:53, \"Y-m-d His \zulu\\\")  = 2005-09-21 110653 zulu¶
+FormatDateTime ( 10-3-2011, \"\", \"\today is the \jS\ day\\\")  = today is the 3rd day
+"; "" );
+// Recursive call if not empty.
+c = c & Si ( EstVide ( format ); ""; FormatDateTime ( d; t; format ) )];
+
+Si ( c = "?"; h; c ) // Send back just help text if format was a question mark (?).
+//c
+
+)
